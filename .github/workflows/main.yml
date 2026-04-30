@@ -1,0 +1,52 @@
+name: Mirror → GoFile (Artifact Mode)
+
+on:
+  workflow_dispatch:
+    inputs:
+      file_url:
+        required: true
+      output_name:
+        required: true
+
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install deps
+        run: |
+          sudo apt update
+          sudo apt install -y jq curl
+
+      - name: chmod script
+        run: chmod +x scripts/gofile.sh
+
+      - name: Download file
+        run: |
+          mkdir -p work
+          URL="${{ github.event.inputs.file_url }}"
+          FILE="work/${{ github.event.inputs.output_name }}"
+
+          curl -L --fail --progress-bar "$URL" -o "$FILE"
+
+          if [ ! -s "$FILE" ]; then
+            echo "Download gagal"
+            exit 1
+          fi
+
+      - name: Upload to GoFile & save result
+        run: |
+          RESULT=$(scripts/gofile.sh "work/${{ github.event.inputs.output_name }}")
+          echo "$RESULT" > result.txt
+
+      - name: Cleanup file besar
+        run: |
+          rm -rf work
+
+      - name: Upload artifact (link only)
+        uses: actions/upload-artifact@v4
+        with:
+          name: gofile-link
+          path: result.txt
